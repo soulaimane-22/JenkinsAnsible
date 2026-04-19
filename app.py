@@ -412,7 +412,7 @@ body::before {{
   </div>
 
   <div class="footer">
-    <div>Projet Déployé via <span style="color:var(--orange)">Jenkins</span> + <span style="color:var(--purple)">Ansible</span> sur <span style="color:var(--cyan)">OpenStack</span></div>
+    <div>Déployé via <span style="color:var(--orange)">Jenkins</span> + <span style="color:var(--purple)">Ansible</span> sur <span style="color:var(--cyan)">OpenStack</span></div>
     <div>✦ <span style="color:var(--orange);font-weight:700">Soulaimane Benayad</span></div>
   </div>
 

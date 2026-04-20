@@ -1,185 +1,190 @@
 from flask import Flask, jsonify
+import socket
 import datetime
-import os
 
 app = Flask(__name__)
 
-# Configuration
-APP_VERSION = "1.0.0"
-DEPLOY_TIME = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+# Configuration de l'IP de ton contrôleur OpenStack
+CONTROLLER_IP = "192.168.56.10"
+
+# Liste des services à surveiller (Nom et Port officiel)
+SERVICES = [
+    {"name": "Keystone (Identity)", "port": 5000},
+    {"name": "Nova (Compute)", "port": 8774},
+    {"name": "Neutron (Network)", "port": 9696},
+    {"name": "Glance (Image)", "port": 9292},
+    {"name": "Horizon (Dashboard)", "port": 80}
+]
+
+def check_port(ip, port):
+    """Vérifie si un service répond sur son port (TCP Connect)"""
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(1)
+        result = sock.connect_ex((ip, port))
+        sock.close()
+        return result == 0
+    except:
+        return False
+
+@app.route('/api/status')
+def status_api():
+    """Endpoint API retournant le statut des services en JSON"""
+    results = []
+    for svc in SERVICES:
+        is_up = check_port(CONTROLLER_IP, svc['port'])
+        results.append({
+            "name": svc['name'],
+            "status": "OPERATIONAL" if is_up else "DOWN",
+            "online": is_up,
+            "port": svc['port']
+        })
+    return jsonify({
+        "services": results,
+        "timestamp": datetime.datetime.now().strftime("%H:%M:%S"),
+        "controller": CONTROLLER_IP
+    })
 
 @app.route('/')
-def home():
+def index():
+    """Route principale retournant la page HTML complète"""
     return '''
-    <!DOCTYPE html>
-    <html lang="fr">
-    <head>
-        <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Cloud & Edge Computing</title>
-        <style>
-            * { margin: 0; padding: 0; box-sizing: border-box; }
-            body {
-                font-family: Arial, sans-serif;
-                background: #f0f4f8;
-                display: flex;
-                justify-content: center;
-                align-items: center;
-                min-height: 100vh;
-            }
-            .container {
-                background: white;
-                border-radius: 12px;
-                padding: 40px;
-                max-width: 700px;
-                width: 90%;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-            }
-            .header {
-                text-align: center;
-                margin-bottom: 30px;
-                padding-bottom: 20px;
-                border-bottom: 2px solid #e2e8f0;
-            }
-            .header h1 {
-                color: #2d3748;
-                font-size: 28px;
-                margin-bottom: 8px;
-            }
-            .header p {
-                color: #718096;
-                font-size: 14px;
-            }
-            .badge {
-                display: inline-block;
-                background: #48bb78;
-                color: white;
-                padding: 4px 12px;
-                border-radius: 20px;
-                font-size: 12px;
-                font-weight: bold;
-                margin-bottom: 15px;
-            }
-            .info-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 15px;
-                margin-bottom: 25px;
-            }
-            .info-card {
-                background: #f7fafc;
-                border: 1px solid #e2e8f0;
-                border-radius: 8px;
-                padding: 15px;
-            }
-            .info-card .label {
-                color: #a0aec0;
-                font-size: 11px;
-                text-transform: uppercase;
-                letter-spacing: 1px;
-                margin-bottom: 5px;
-            }
-            .info-card .value {
-                color: #2d3748;
-                font-size: 14px;
-                font-weight: bold;
-            }
-            .stack-section {
-                background: #ebf8ff;
-                border: 1px solid #bee3f8;
-                border-radius: 8px;
-                padding: 15px;
-                margin-bottom: 20px;
-            }
-            .stack-section h3 {
-                color: #2b6cb0;
-                font-size: 14px;
-                margin-bottom: 10px;
-            }
-            .stack-tags {
-                display: flex;
-                flex-wrap: wrap;
-                gap: 8px;
-            }
-            .tag {
-                background: #2b6cb0;
-                color: white;
-                padding: 3px 10px;
-                border-radius: 4px;
-                font-size: 12px;
-            }
-            .footer {
-                text-align: center;
-                color: #a0aec0;
-                font-size: 12px;
-                padding-top: 15px;
-                border-top: 1px solid #e2e8f0;
-            }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <div class="header">
-                <span class="badge">ACTIVE</span>
-                <h1>Application Flask</h1>
-                <p>Deploye sur Infrastructure OpenStack</p>
-            </div>
-
-            <div class="info-grid">
-                <div class="info-card">
-                    <div class="label">Version</div>
-                    <div class="value">''' + APP_VERSION + '''</div>
-                </div>
-                <div class="info-card">
-                    <div class="label">Statut</div>
-                    <div class="value" style="color: #48bb78;">En ligne</div>
-                </div>
-                <div class="info-card">
-                    <div class="label">Deploye le</div>
-                    <div class="value">''' + DEPLOY_TIME + '''</div>
-                </div>
-                <div class="info-card">
-                    <div class="label">Environnement</div>
-                    <div class="value">OpenStack IaaS</div>
-                </div>
-            </div>
-
-            <div class="stack-section">
-                <h3>Stack Technique</h3>
-                <div class="stack-tags">
-                    <span class="tag">OpenStack</span>
-                    <span class="tag">Flask 2.0.3</span>
-                    <span class="tag">Python 3.8</span>
-                    <span class="tag">Ansible</span>
-                    <span class="tag">Jenkins</span>
-                    <span class="tag">Ubuntu 20.04</span>
-                </div>
-            </div>
-
-            <div class="footer">
-                Cloud & Edge Computing — Projet Academic 2025-2026
-            </div>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenStack Service Status</title>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --card-bg: #ffffff;
+            --primary: #00d4ff;
+            --success: #2ecc71;
+            --danger: #e74c3c;
+            --text: #2c3e50;
+        }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--bg); 
+            color: var(--text); 
+            margin: 0; padding: 20px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        .container { width: 100%; max-width: 700px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .status-card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .service-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .service-row:last-child { border-bottom: none; }
+        .svc-info { display: flex; flex-direction: column; }
+        .svc-name { font-weight: bold; font-size: 1.1em; }
+        .svc-port { font-size: 0.8em; color: #7f8c8d; }
+        .badge {
+            padding: 6px 15px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        .badge.up { background: #d4f8e6; color: var(--success); }
+        .badge.down { background: #fce4e4; color: var(--danger); }
+        
+        .cicd-banner {
+            margin-top: 30px;
+            padding: 20px;
+            background: #1a2a3a;
+            color: white;
+            border-radius: 10px;
+            text-align: center;
+            border-left: 5px solid var(--primary);
+        }
+        .tool-badge {
+            display: inline-block;
+            border: 1px solid var(--primary);
+            padding: 3px 10px;
+            border-radius: 4px;
+            font-size: 0.9em;
+            margin: 5px;
+            color: var(--primary);
+        }
+        .footer { margin-top: 20px; font-size: 0.8em; color: #95a5a6; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Cloud System Status</h1>
+            <p>Surveillance en temps réel de l'infrastructure OpenStack</p>
         </div>
-    </body>
-    </html>
-    '''
 
-@app.route('/status')
-def status():
-    return jsonify({
-        "status": "running",
-        "version": APP_VERSION,
-        "deployed_at": DEPLOY_TIME,
-        "service": "flask-app",
-        "environment": "openstack"
-    })
+        <div class="status-card" id="status-container">
+            <p style="text-align:center;">Analyse des services en cours...</p>
+        </div>
 
-@app.route('/health')
-def health():
-    return jsonify({
-        "health": "ok",
-        "timestamp": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    })
+        <div class="cicd-banner">
+            <strong>Pipeline CI/CD Opérationnel</strong><br>
+            <div class="tool-badge">JENKINS AUTOMATION</div>
+            <div class="tool-badge">ANSIBLE DEPLOYMENT</div>
+            <p style="font-size: 0.8em; margin-top: 10px; color: #bdc3c7;">
+                Code source synchronisé et déployé automatiquement.
+            </p>
+        </div>
+
+        <div class="footer">
+            Dernière mise à jour : <span id="time">-</span> | Contrôleur : ''' + CONTROLLER_IP + '''<br>
+            Projet Cloud & Edge Computing — Soulaimane Benayad
+        </div>
+    </div>
+
+    <script>
+        function updateStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('time').innerText = data.timestamp;
+                    let container = document.getElementById('status-container');
+                    let html = "";
+                    
+                    data.services.forEach(s => {
+                        let statusClass = s.online ? "up" : "down";
+                        html += `
+                            <div class="service-row">
+                                <div class="svc-info">
+                                    <span class="svc-name">${s.name}</span>
+                                    <span class="svc-port">Port: ${s.port}</span>
+                                </div>
+                                <span class="badge ${statusClass}">${s.status}</span>
+                            </div>
+                        `;
+                    });
+                    container.innerHTML = html;
+                })
+                .catch(err => {
+                    document.getElementById('status-container').innerHTML = 
+                        "<p style='color:red; text-align:center;'>Erreur de connexion à l'API de monitoring</p>";
+                });
+        }
+
+        // Actualisation automatique toutes les 5 secondes
+        setInterval(updateStatus, 5000);
+        updateStatus();
+    </script>
+</body>
+</html>
+'''
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=80, debug=False)
+    # Lancement sur le port 80 (nécessite sudo)
+    app.run(host='0.0.0.0', port=80)
